@@ -1,0 +1,19 @@
+name: local_clipboard
+description: A local Flutter plugin to perform background clipboard operations using a native bridge.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.example.local_clipboard
+        pluginClass: LocalClipboardPlugin
