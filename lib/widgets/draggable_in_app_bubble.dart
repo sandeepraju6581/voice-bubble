@@ -1,8 +1,10 @@
 import 'dart:ui';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:local_clipboard/local_clipboard.dart';
 import '../services/speech_service.dart';
 import '../utils/telugu_transliterator.dart';
+import '../services/vault_service.dart';
 
 class InAppBubbleOverlay {
   static OverlayEntry? _overlayEntry;
@@ -35,6 +37,10 @@ class _DraggableInAppBubbleState extends State<DraggableInAppBubble>
     with TickerProviderStateMixin {
   Offset _position = const Offset(20, 150);
   bool _isExpanded = false;
+  bool _showFolders = false;
+  String? _copiedCategoryId;
+  String? _expandedCategoryId;
+  String? _copiedImagePath;
 
   // Snapping animation
   late AnimationController _snapController;
@@ -326,201 +332,543 @@ class _DraggableInAppBubbleState extends State<DraggableInAppBubble>
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          // Tab Switcher
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Language",
-                style: TextStyle(color: Colors.white54, fontSize: 11),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _showFolders = false),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: !_showFolders ? Colors.cyan.withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: !_showFolders ? Colors.cyan : Colors.transparent,
+                        width: 1,
+                      ),
+                    ),
+                    child: const Text(
+                      "Speech",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
-              ValueListenableBuilder<String>(
-                valueListenable: speech.currentLocale,
-                builder: (context, locale, _) {
-                  final isEnglish = locale == "en_US";
-                  return Row(
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _showFolders = true),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _showFolders ? Colors.cyan.withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _showFolders ? Colors.cyan : Colors.transparent,
+                        width: 1,
+                      ),
+                    ),
+                    child: const Text(
+                      "Folders",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _showFolders ? _buildFoldersPanel() : _buildSpeechPanel(speech),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpeechPanel(SpeechService speech) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Language",
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            ValueListenableBuilder<String>(
+              valueListenable: speech.currentLocale,
+              builder: (context, locale, _) {
+                final isEnglish = locale == "en_US";
+                return Row(
+                  children: [
+                    _buildLanguageButton("🇺🇸 EN", isEnglish, () => speech.currentLocale.value = "en_US"),
+                    const SizedBox(width: 6),
+                    _buildLanguageButton("🇮🇳 TE", !isEnglish, () => speech.currentLocale.value = "te_IN"),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Transcription text box
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ValueListenableBuilder<String>(
+                valueListenable: speech.transcribedText,
+                builder: (context, text, _) {
+                  if (text.isEmpty) {
+                    return const Text(
+                      "Tap the mic and speak...",
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    );
+                  }
+                  final transliterated = TeluguTransliterator.transliterate(text);
+                  final hasTransliteration = transliterated != text;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLanguageButton("🇺🇸 EN", isEnglish, () => speech.currentLocale.value = "en_US"),
-                      const SizedBox(width: 6),
-                      _buildLanguageButton("🇮🇳 TE", !isEnglish, () => speech.currentLocale.value = "te_IN"),
+                      Text(
+                        text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (hasTransliteration) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          transliterated,
+                          style: TextStyle(
+                            color: Colors.cyan[300],
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
                   );
                 },
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
+        ),
+        const SizedBox(height: 12),
 
-          // Transcription text box
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: ValueListenableBuilder<String>(
-                  valueListenable: speech.transcribedText,
-                  builder: (context, text, _) {
-                    if (text.isEmpty) {
-                      return const Text(
-                        "Tap the mic and speak...",
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      );
-                    }
-                    final transliterated = TeluguTransliterator.transliterate(text);
-                    final hasTransliteration = transliterated != text;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          text,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                        ),
-                        if (hasTransliteration) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            transliterated,
-                            style: TextStyle(
-                              color: Colors.cyan[300],
-                              fontSize: 12,
-                              height: 1.4,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+        // Waveform Visualizer
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.black12,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: speech.isListening,
+            builder: (context, listening, _) {
+              if (!listening) {
+                return const Center(
+                  child: Text(
+                    "Visualizer Idle",
+                    style: TextStyle(color: Colors.white24, fontSize: 12),
+                  ),
+                );
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: List.generate(_waveformHeights.length, (index) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 50),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: 4,
+                    height: _waveformHeights[index],
+                    decoration: BoxDecoration(
+                      color: Colors.cyan.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.cyan.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                        )
                       ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Waveform Visualizer
-          Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: speech.isListening,
-              builder: (context, listening, _) {
-                if (!listening) {
-                  return const Center(
-                    child: Text(
-                      "Visualizer Idle",
-                      style: TextStyle(color: Colors.white24, fontSize: 12),
                     ),
                   );
-                }
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: List.generate(_waveformHeights.length, (index) {
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 50),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: 4,
-                      height: _waveformHeights[index],
-                      decoration: BoxDecoration(
-                        color: Colors.cyan.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.cyan.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                          )
-                        ],
+                }),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Actions
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Copy Button
+            _buildActionButton(
+              icon: Icons.copy_all_rounded,
+              tooltip: "Copy Text",
+              onPressed: () async {
+                final text = speech.transcribedText.value;
+                if (text.isNotEmpty) {
+                  final transliterated = TeluguTransliterator.transliterate(text);
+                  final success = await LocalClipboard.copy(transliterated);
+                  if (success && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Copied to clipboard!"),
+                        duration: Duration(seconds: 1),
                       ),
                     );
-                  }),
+                  }
+                }
+              },
+            ),
+            // Mic Toggle Button
+            ValueListenableBuilder<bool>(
+              valueListenable: speech.isListening,
+              builder: (context, listening, _) {
+                return InkWell(
+                  onTap: _toggleListening,
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: listening ? Colors.cyan : Colors.white10,
+                      boxShadow: listening
+                          ? [
+                              BoxShadow(
+                                color: Colors.cyan.withValues(alpha: 0.4),
+                                blurRadius: 10,
+                                spreadRadius: 2,
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Icon(
+                      listening ? Icons.stop_rounded : Icons.mic_rounded,
+                      color: listening ? Colors.black : Colors.white,
+                      size: 26,
+                    ),
+                  ),
                 );
               },
             ),
-          ),
-          const SizedBox(height: 16),
+            // Clear Button
+            _buildActionButton(
+              icon: Icons.delete_outline_rounded,
+              tooltip: "Clear Text",
+              onPressed: () {
+                speech.transcribedText.value = "";
+              },
+            ),
+          ],
+        )
+      ],
+    );
+  }
 
-          // Actions
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Copy Button
-              _buildActionButton(
-                icon: Icons.copy_all_rounded,
-                tooltip: "Copy Text",
-                onPressed: () async {
-                  final text = speech.transcribedText.value;
-                  if (text.isNotEmpty) {
-                    final transliterated = TeluguTransliterator.transliterate(text);
-                    final success = await LocalClipboard.copy(transliterated);
-                    if (success && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Copied to clipboard!"),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  }
-                },
-              ),
-              // Mic Toggle Button (Floating Cyan button)
-              ValueListenableBuilder<bool>(
-                valueListenable: speech.isListening,
-                builder: (context, listening, _) {
-                  return InkWell(
-                    onTap: _toggleListening,
-                    borderRadius: BorderRadius.circular(30),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: listening ? Colors.cyan : Colors.white10,
-                        boxShadow: listening
-                            ? [
-                                BoxShadow(
-                                  color: Colors.cyan.withValues(alpha: 0.4),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        listening ? Icons.stop_rounded : Icons.mic_rounded,
-                        color: listening ? Colors.black : Colors.white,
-                        size: 26,
-                      ),
+  Widget _buildFoldersPanel() {
+    final service = VaultService.instance;
+    return AnimatedBuilder(
+      animation: service,
+      builder: (context, _) {
+        final categories = service.categories;
+        if (categories.isEmpty) {
+          return const Center(
+            child: Text(
+              "No folders found.\nCreate folders in the main app.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          physics: const BouncingScrollPhysics(),
+          itemCount: categories.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final cat = categories[index];
+            final isCopied = _copiedCategoryId == cat.id;
+            final isExpanded = _expandedCategoryId == cat.id;
+            final isFolderEmpty = cat.imagePaths.isEmpty;
+
+            final cleanStart = cat.colorStart.replaceAll('#', '');
+            final cleanEnd = cat.colorEnd.replaceAll('#', '');
+            final startCol = Color(int.parse('FF$cleanStart', radix: 16));
+            final endCol = Color(int.parse('FF$cleanEnd', radix: 16));
+            final iconCode = cat.iconCodePoint;
+            final folderIcon = getCategoryIcon(iconCode);
+
+            return Material(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                onTap: isFolderEmpty
+                    ? null
+                    : () {
+                        setState(() {
+                          _expandedCategoryId = isExpanded ? null : cat.id;
+                        });
+                      },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isExpanded
+                          ? Colors.cyanAccent.withValues(alpha: 0.3)
+                          : (isCopied ? Colors.greenAccent.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.04)),
+                      width: 1.2,
                     ),
-                  );
-                },
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(colors: [startCol, endCol]),
+                            ),
+                            child: Icon(folderIcon, color: Colors.white, size: 14),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  cat.name,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "${cat.imagePaths.length} ${cat.imagePaths.length == 1 ? 'image' : 'images'}",
+                                  style: const TextStyle(color: Colors.white30, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isFolderEmpty)
+                            const Icon(Icons.info_outline_rounded, color: Colors.white24, size: 16)
+                          else
+                            Icon(
+                              isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                              color: isExpanded ? Colors.cyanAccent : Colors.white54,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                      if (isExpanded && !isFolderEmpty) ...[
+                        const SizedBox(height: 10),
+                        const Divider(color: Colors.white12, height: 1),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final success = await service.copyCategoryToClipboard(cat);
+                                  if (success) {
+                                    setState(() {
+                                      _copiedCategoryId = cat.id;
+                                    });
+                                    Future.delayed(const Duration(milliseconds: 1500), () {
+                                      if (mounted) {
+                                        setState(() {
+                                          _copiedCategoryId = null;
+                                        });
+                                      }
+                                    });
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        isCopied ? Icons.check_circle_rounded : Icons.copy_all_rounded,
+                                        size: 12,
+                                        color: isCopied ? Colors.greenAccent : Colors.cyanAccent,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isCopied ? "Copied" : "Copy",
+                                        style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  await service.sendCategoryToWhatsApp(cat);
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.send_rounded, size: 12, color: Color(0xFF25D366)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "WhatsApp",
+                                        style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  await service.shareCategory(cat);
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.share_rounded, size: 12, color: Colors.purpleAccent),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "Share",
+                                        style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          "Tap single image to copy:",
+                          style: TextStyle(color: Colors.white30, fontSize: 9),
+                        ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 48,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: cat.imagePaths.length,
+                            separatorBuilder: (context, idx) => const SizedBox(width: 8),
+                            itemBuilder: (context, idx) {
+                              final imgPath = cat.imagePaths[idx];
+                              final isImgCopied = _copiedImagePath == imgPath;
+                              return GestureDetector(
+                                onTap: () async {
+                                  final success = await service.copyImageToClipboard(imgPath);
+                                  if (success) {
+                                    setState(() {
+                                      _copiedImagePath = imgPath;
+                                    });
+                                    Future.delayed(const Duration(milliseconds: 1500), () {
+                                      if (mounted) {
+                                        setState(() {
+                                          _copiedImagePath = null;
+                                        });
+                                      }
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isImgCopied ? Colors.greenAccent : Colors.white12,
+                                      width: isImgCopied ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        Image.file(
+                                          File(imgPath),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.broken_image, color: Colors.white38, size: 16),
+                                        ),
+                                        if (isImgCopied)
+                                          Container(
+                                            color: Colors.black54,
+                                            child: const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 16),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-              // Clear Button
-              _buildActionButton(
-                icon: Icons.delete_outline_rounded,
-                tooltip: "Clear Text",
-                onPressed: () {
-                  speech.transcribedText.value = "";
-                },
-              ),
-            ],
-          )
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -7,6 +7,7 @@ import '../services/speech_service.dart';
 import '../services/overlay_service_wrapper.dart';
 import '../widgets/draggable_in_app_bubble.dart';
 import '../utils/telugu_transliterator.dart';
+import 'category_vault_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _systemOverlayActive = false;
   String _testTranscribedText = "";
   String _bgOverlayEventLog = "Waiting for background events...";
+  int _selectedTabIndex = 0;
 
   // For testing mic on Home screen
   late AnimationController _pulseController;
@@ -185,53 +187,112 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "VOICE BUBBLE",
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
-            color: Colors.white,
-            fontFamily: 'Outfit',
-          ),
+      appBar: _selectedTabIndex == 0
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              title: const Text(
+                "VOICE BUBBLE",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  color: Colors.white,
+                  fontFamily: 'Outfit',
+                ),
+              ),
+            )
+          : null,
+      body: IndexedStack(
+        index: _selectedTabIndex,
+        children: [
+          _buildDictationBody(speech),
+          const CategoryVaultScreen(),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildDictationBody(SpeechService speech) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0D0B21), // Midnight Dark Blue
+            Color(0xFF14123A), // Deep Indigo
+            Color(0xFF1F124C), // Purple Tone
+          ],
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0D0B21), // Midnight Dark Blue
-              Color(0xFF14123A), // Deep Indigo
-              Color(0xFF1F124C), // Purple Tone
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeroBanner(),
+              const SizedBox(height: 20),
+              _buildPermissionsCard(),
+              const SizedBox(height: 20),
+              _buildOverlayControlsCard(),
+              const SizedBox(height: 20),
+              _buildTestAreaCard(speech),
+              if (Platform.isAndroid) ...[
+                const SizedBox(height: 20),
+                _buildEventLogsCard(),
+              ],
+              const SizedBox(height: 30),
             ],
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeroBanner(),
-                const SizedBox(height: 20),
-                _buildPermissionsCard(),
-                const SizedBox(height: 20),
-                _buildOverlayControlsCard(),
-                const SizedBox(height: 20),
-                _buildTestAreaCard(speech),
-                if (Platform.isAndroid) ...[
-                  const SizedBox(height: 20),
-                  _buildEventLogsCard(),
-                ],
-                const SizedBox(height: 30),
-              ],
-            ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D0B21).withValues(alpha: 0.8),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1.2,
+          ),
+        ),
+      ),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+          child: BottomNavigationBar(
+            currentIndex: _selectedTabIndex,
+            onTap: (index) {
+              setState(() {
+                _selectedTabIndex = index;
+              });
+            },
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Colors.cyan[400],
+            unselectedItemColor: Colors.white38,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Outfit', fontSize: 12),
+            unselectedLabelStyle: const TextStyle(fontFamily: 'Outfit', fontSize: 11),
+            type: BottomNavigationBarType.fixed,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.mic_none_rounded),
+                activeIcon: Icon(Icons.mic_rounded),
+                label: "Dictation",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.folder_open_rounded),
+                activeIcon: Icon(Icons.folder_shared_rounded),
+                label: "Vault",
+              ),
+            ],
           ),
         ),
       ),

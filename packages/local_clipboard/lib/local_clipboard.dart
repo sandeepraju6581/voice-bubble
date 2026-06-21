@@ -12,4 +12,24 @@ class LocalClipboard {
       return false;
     }
   }
+
+  /// Copies a list of file paths to the system clipboard as URIs.
+  static Future<bool> copyFiles(List<String> filePaths) async {
+    try {
+      final bool? success = await _channel.invokeMethod<bool>('copyFiles', filePaths);
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Direct send to WhatsApp (or WhatsApp Business) for multiple image paths.
+  static Future<bool> sendToWhatsApp(List<String> filePaths) async {
+    try {
+      final bool? success = await _channel.invokeMethod<bool>('sendToWhatsApp', filePaths);
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

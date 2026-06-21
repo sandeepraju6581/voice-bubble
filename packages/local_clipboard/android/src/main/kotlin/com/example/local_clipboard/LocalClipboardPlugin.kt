@@ -1,12 +1,17 @@
 package com.example.local_clipboard
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import java.io.File
 
 class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
     private lateinit var channel : MethodChannel
@@ -19,16 +24,37 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        if (call.method == "copy") {
-            val text = call.arguments as? String
-            if (text != null) {
-                copyToClipboard(text)
-                result.success(true)
-            } else {
-                result.error("INVALID_ARGUMENT", "Text to copy is null", null)
+        when (call.method) {
+            "copy" -> {
+                val text = call.arguments as? String
+                if (text != null) {
+                    copyToClipboard(text)
+                    result.success(true)
+                } else {
+                    result.error("INVALID_ARGUMENT", "Text to copy is null", null)
+                }
             }
-        } else {
-            result.notImplemented()
+            "copyFiles" -> {
+                val filePaths = call.arguments as? List<String>
+                if (filePaths != null) {
+                    val success = copyFilesToClipboard(filePaths)
+                    result.success(success)
+                } else {
+                    result.error("INVALID_ARGUMENT", "File paths list is null", null)
+                }
+            }
+            "sendToWhatsApp" -> {
+                val filePaths = call.arguments as? List<String>
+                if (filePaths != null) {
+                    val success = sendMultipleToWhatsApp(filePaths)
+                    result.success(success)
+                } else {
+                    result.error("INVALID_ARGUMENT", "File paths list is null", null)
+                }
+            }
+            else -> {
+                result.notImplemented()
+            }
         }
     }
 
@@ -39,6 +65,57 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
         }
         context.startActivity(intent)
+    }
+
+    private fun copyFilesToClipboard(filePaths: List<String>): Boolean {
+        return try {
+            val intent = Intent().apply {
+                setClassName(context.packageName, "com.example.viocebubble.TransparentClipboardActivity")
+                putStringArrayListExtra("files", ArrayList(filePaths))
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun sendMultipleToWhatsApp(filePaths: List<String>): Boolean {
+        val authority = "${context.packageName}.fileprovider"
+        val uris = ArrayList<Uri>()
+        for (path in filePaths) {
+            val file = File(path)
+            if (file.exists()) {
+                val uri = FileProvider.getUriForFile(context, authority, file)
+                uris.add(uri)
+            }
+        }
+        if (uris.isEmpty()) return false
+
+        // Try standard WhatsApp first
+        val success = startWhatsAppIntent("com.whatsapp", uris)
+        if (success) return true
+
+        // Try WhatsApp Business next
+        return startWhatsAppIntent("com.whatsapp.w4b", uris)
+    }
+
+    private fun startWhatsAppIntent(packageName: String, uris: ArrayList<Uri>): Boolean {
+        return try {
+            val intent = Intent().apply {
+                action = Intent.ACTION_SEND_MULTIPLE
+                type = "image/*"
+                setPackage(packageName)
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {

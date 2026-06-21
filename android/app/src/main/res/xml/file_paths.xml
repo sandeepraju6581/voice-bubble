@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Expose files under context.filesDir (which includes app_flutter) -->
+    <files-path name="app_files" path="." />
+    <!-- Expose root path to support paths outside filesDir, e.g. path_provider's app_flutter directory -->
+    <root-path name="root" path="." />
+</paths>
