@@ -44,8 +44,8 @@ class TransparentClipboardActivity : Activity() {
                             val uri = FileProvider.getUriForFile(this, authority, file)
                             val mime = contentResolver.getType(uri) ?: "image/jpeg"
                             mimeTypes.add(mime)
-                            // Set filename as text representation to avoid binary coercion
-                            items.add(ClipData.Item(file.name, null as android.content.Intent?, uri))
+                            // Set only the Uri to avoid pasting the filename text
+                            items.add(ClipData.Item(uri))
                         }
                     }
 

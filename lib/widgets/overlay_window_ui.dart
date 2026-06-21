@@ -318,14 +318,15 @@ class _OverlayWindowUIState extends State<OverlayWindowUI>
             ValueListenableBuilder<String>(
               valueListenable: speech.currentLocale,
               builder: (context, locale, _) {
-                final isEnglish = locale == "en_US";
-                return Row(
-                  children: [
-                    _buildLanguageButton("🇺🇸 EN", isEnglish, () => speech.currentLocale.value = "en_US"),
-                    const SizedBox(width: 6),
-                    _buildLanguageButton("🇮🇳 TE", !isEnglish, () => speech.currentLocale.value = "te_IN"),
-                  ],
-                );
+                  return Row(
+                    children: [
+                      _buildLanguageButton("🇺🇸 EN", locale == "en_US", () => speech.currentLocale.value = "en_US"),
+                      const SizedBox(width: 6),
+                      _buildLanguageButton("🇮🇳 TE", locale == "te_IN", () => speech.currentLocale.value = "te_IN"),
+                      const SizedBox(width: 6),
+                      _buildLanguageButton("🔄 MIX", locale == "te_IN_mix", () => speech.currentLocale.value = "te_IN_mix"),
+                    ],
+                  );
               },
             ),
           ],

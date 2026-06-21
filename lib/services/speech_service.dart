@@ -4,6 +4,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import '../utils/smart_mix_processor.dart';
+import 'dictionary_service.dart';
 
 class SpeechService {
   SpeechService._internal();
@@ -34,6 +36,7 @@ class SpeechService {
     if (_isInitialized) return isAvailable.value;
 
     try {
+      await DictionaryService.instance.loadDictionary();
       final hasPermission = await checkPermissions();
       if (!hasPermission) {
         final granted = await requestPermissions();
@@ -97,12 +100,18 @@ class SpeechService {
     isListening.value = true;
 
     final targetLocale = localeId ?? currentLocale.value;
+    final isMixMode = targetLocale == "te_IN_mix";
+    final recognizerLocale = isMixMode ? "te_IN" : targetLocale;
 
     try {
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) {
-          transcribedText.value = result.recognizedWords;
-          onResult(result.recognizedWords);
+          String processedText = result.recognizedWords;
+          if (isMixMode) {
+            processedText = SmartMixProcessor.process(processedText);
+          }
+          transcribedText.value = processedText;
+          onResult(processedText);
           if (result.finalResult) {
             isListening.value = false;
             soundLevel.value = 0.0;
@@ -115,7 +124,7 @@ class SpeechService {
           partialResults: true,
           cancelOnError: false,
           listenMode: ListenMode.dictation,
-          localeId: targetLocale,
+          localeId: recognizerLocale,
         ),
         onSoundLevelChange: (level) {
           // Normalize sound level for UI animations (usually ranges from -2 to 10+)

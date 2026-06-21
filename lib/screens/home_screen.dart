@@ -8,6 +8,7 @@ import '../services/overlay_service_wrapper.dart';
 import '../widgets/draggable_in_app_bubble.dart';
 import '../utils/telugu_transliterator.dart';
 import 'category_vault_screen.dart';
+import '../services/dictionary_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +25,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _testTranscribedText = "";
   String _bgOverlayEventLog = "Waiting for background events...";
   int _selectedTabIndex = 0;
+
+  final TextEditingController _englishWordController = TextEditingController();
+  final TextEditingController _teluguWordController = TextEditingController();
 
   // For testing mic on Home screen
   late AnimationController _pulseController;
@@ -77,6 +81,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     SpeechService.instance.soundLevel.removeListener(_updateTestWaveform);
     _pulseController.dispose();
+    _englishWordController.dispose();
+    _teluguWordController.dispose();
     super.dispose();
   }
 
@@ -241,6 +247,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildOverlayControlsCard(),
               const SizedBox(height: 20),
               _buildTestAreaCard(speech),
+              const SizedBox(height: 20),
+              _buildCustomDictionaryCard(),
               if (Platform.isAndroid) ...[
                 const SizedBox(height: 20),
                 _buildEventLogsCard(),
@@ -513,12 +521,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ValueListenableBuilder<String>(
                 valueListenable: speech.currentLocale,
                 builder: (context, locale, _) {
-                  final isEnglish = locale == "en_US";
                   return Row(
                     children: [
-                      _buildLanguageButton("🇺🇸 EN", isEnglish, () => speech.currentLocale.value = "en_US"),
-                      const SizedBox(width: 8),
-                      _buildLanguageButton("🇮🇳 TE (తెలుగు)", !isEnglish, () => speech.currentLocale.value = "te_IN"),
+                      _buildLanguageButton("🇺🇸 EN", locale == "en_US", () => speech.currentLocale.value = "en_US"),
+                      const SizedBox(width: 6),
+                      _buildLanguageButton("🇮🇳 TE", locale == "te_IN", () => speech.currentLocale.value = "te_IN"),
+                      const SizedBox(width: 6),
+                      _buildLanguageButton("🔄 MIX", locale == "te_IN_mix", () => speech.currentLocale.value = "te_IN_mix"),
                     ],
                   );
                 },
@@ -764,6 +773,248 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCustomDictionaryCard() {
+    final dictService = DictionaryService.instance;
+
+    return _buildGlassCard(
+      title: "Smart Mix Custom Dictionary",
+      icon: Icons.book_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            "Map custom English words so they are correctly recognized in MIX mode instead of showing up as Telugu script or phonetic Latin script.",
+            style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          
+          // Row of inputs
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _englishWordController,
+                  decoration: InputDecoration(
+                    labelText: "English Word",
+                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                    hintText: "e.g. daddy",
+                    hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.cyan),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _teluguWordController,
+                  decoration: InputDecoration(
+                    labelText: "Telugu Script",
+                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                    hintText: "e.g. డాడీ",
+                    hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.cyan),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Add Word button
+          ElevatedButton.icon(
+            onPressed: () async {
+              final eng = _englishWordController.text.trim();
+              final tel = _teluguWordController.text.trim();
+              if (eng.isNotEmpty && tel.isNotEmpty) {
+                await dictService.addEntry(eng, tel);
+                _englishWordController.clear();
+                _teluguWordController.clear();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Added custom mapping: $eng ➔ $tel"),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyan[600],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: const Text("Add Custom Word", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          const SizedBox(height: 18),
+
+          // Quick Add Suggestions
+          const Text(
+            "Quick Suggestions",
+            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildQuickAddChip("college", "కాలేజీ"),
+              _buildQuickAddChip("phone", "ఫోన్"),
+              _buildQuickAddChip("daddy", "డాడీ"),
+              _buildQuickAddChip("mummy", "మమ్మీ"),
+              _buildQuickAddChip("school", "స్కూల్"),
+              _buildQuickAddChip("office", "ఆఫీస్"),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Custom words list
+          const Text(
+            "Active Custom Mappings",
+            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+
+          AnimatedBuilder(
+            animation: dictService,
+            builder: (context, _) {
+              final entries = dictService.entries;
+              if (entries.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "No custom words added yet.",
+                      style: TextStyle(color: Colors.white30, fontSize: 12),
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: entries.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  final phonetic = TeluguTransliterator.transliterate(entry.teluguWord);
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              text: entry.englishWord,
+                              style: const TextStyle(
+                                color: Colors.cyanAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              children: [
+                                const TextSpan(
+                                  text: "  ➔  ",
+                                  style: TextStyle(color: Colors.white38),
+                                ),
+                                TextSpan(
+                                  text: entry.teluguWord,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: " [$phonetic]",
+                                  style: const TextStyle(
+                                    color: Colors.white30,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+                          onPressed: () async {
+                            await dictService.removeEntry(entry.englishWord);
+                          },
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAddChip(String english, String telugu) {
+    final dictService = DictionaryService.instance;
+    return ActionChip(
+      label: Text("$english ➔ $telugu"),
+      labelStyle: const TextStyle(fontSize: 11, color: Colors.white70),
+      backgroundColor: Colors.white.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Colors.white12),
+      ),
+      onPressed: () async {
+        await dictService.addEntry(english, telugu);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Quick Added: $english ➔ $telugu"),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      },
     );
   }
 }
