@@ -363,9 +363,7 @@ class _OverlayWindowUIState extends State<OverlayWindowUI>
             ),
           ],
         ),
-        const SizedBox(height: 8),
-
-        // Transcription text box
+        const SizedBox(height: 8),        // Transcription text box
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(10),

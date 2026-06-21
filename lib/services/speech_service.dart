@@ -22,6 +22,7 @@ class SpeechService {
   final ValueNotifier<String> currentLocale = ValueNotifier<String>("en_US");
   final ValueNotifier<bool> autoInjectEnabled = ValueNotifier<bool>(false);
 
+
   bool _isInitialized = false;
 
   Future<bool> checkPermissions() async {
@@ -114,14 +115,14 @@ class SpeechService {
           }
           transcribedText.value = processedText;
           onResult(processedText);
-          if (result.finalResult) {
-            isListening.value = false;
-            soundLevel.value = 0.0;
-            status.value = "Done";
-            if (autoInjectEnabled.value && processedText.isNotEmpty) {
-              LocalClipboard.injectText(processedText);
+            if (result.finalResult) {
+              isListening.value = false;
+              soundLevel.value = 0.0;
+              status.value = "Done";
+              if (autoInjectEnabled.value && processedText.isNotEmpty) {
+                LocalClipboard.injectText(processedText);
+              }
             }
-          }
         },
         listenOptions: SpeechListenOptions(
           listenFor: const Duration(seconds: 30),

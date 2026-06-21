@@ -72,6 +72,7 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
                     result.error("INVALID_ARGUMENT", "Text to inject is null", null)
                 }
             }
+
             else -> {
                 result.notImplemented()
             }

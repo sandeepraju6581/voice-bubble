@@ -451,9 +451,7 @@ class _DraggableInAppBubbleState extends State<DraggableInAppBubble>
             ),
           ],
         ),
-        const SizedBox(height: 10),
-
-        // Transcription text box
+        const SizedBox(height: 10),        // Transcription text box
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(12),
