@@ -497,11 +497,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("Enable the Auto-Type Accessibility Service first!"),
-                              duration: Duration(seconds: 2),
+                              content: Text("Tap 'Installed apps' -> 'Voice Bubble' to enable Auto-Type!"),
+                              duration: Duration(seconds: 4),
                             ),
                           );
                         }
+                        await LocalClipboard.openAccessibilitySettings();
                         return;
                       }
                     }

@@ -157,6 +157,15 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
     }
 
     private fun openAccessibilitySettings() {
+        try {
+            android.widget.Toast.makeText(
+                context,
+                "Tap 'Installed apps' -> 'Voice Bubble' to enable",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
