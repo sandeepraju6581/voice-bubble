@@ -48,7 +48,7 @@ class OverlayServiceWrapper {
         width: width,
         height: height,
         alignment: OverlayAlignment.centerRight,
-        flag: OverlayFlag.defaultFlag,
+        flag: OverlayFlag.focusPointer,
       );
     } catch (e) {
       // Handle overlay launch failure

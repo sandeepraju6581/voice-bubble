@@ -37,7 +37,11 @@ class VoiceBubbleAccessibilityService : AccessibilityService() {
         var instance: VoiceBubbleAccessibilityService? = null
 
         fun injectText(context: Context, text: String): Boolean {
-            val service = instance ?: return false
+            val service = instance
+            if (service == null) {
+                android.util.Log.e("VoiceBubbleAccessibility", "Service instance is null – cannot inject")
+                return false
+            }
             
             var focusedNode: AccessibilityNodeInfo? = null
 
