@@ -494,7 +494,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                     if (val) {
                       final active = await LocalClipboard.isAccessibilityServiceEnabled();
                       if (!active) {
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Enable the Auto-Type Accessibility Service first!"),
