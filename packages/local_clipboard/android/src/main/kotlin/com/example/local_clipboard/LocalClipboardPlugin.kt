@@ -160,7 +160,7 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
         try {
             android.widget.Toast.makeText(
                 context,
-                "Tap 'Installed apps' -> 'Voice Bubble' to enable",
+                "Tap 'Accessibility' -> 'Installed apps' -> 'Voice Bubble' to enable",
                 android.widget.Toast.LENGTH_LONG
             ).show()
         } catch (e: Exception) {

@@ -497,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("Tap 'Installed apps' -> 'Voice Bubble' to enable Auto-Type!"),
+                              content: Text("Tap 'Accessibility' -> 'Installed apps' -> 'Voice Bubble' to enable Auto-Type!"),
                               duration: Duration(seconds: 4),
                             ),
                           );
