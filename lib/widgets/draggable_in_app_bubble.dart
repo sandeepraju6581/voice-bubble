@@ -419,6 +419,38 @@ class _DraggableInAppBubbleState extends State<DraggableInAppBubble>
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Auto-Type (Inject)",
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: speech.autoInjectEnabled,
+              builder: (context, enabled, _) {
+                return Switch(
+                  value: enabled,
+                  onChanged: (val) async {
+                    if (val) {
+                      final active = await LocalClipboard.isAccessibilityServiceEnabled();
+                      if (!active) {
+                        await LocalClipboard.openAccessibilitySettings();
+                        return;
+                      }
+                    }
+                    speech.autoInjectEnabled.value = val;
+                  },
+                  activeThumbColor: Colors.amberAccent,
+                  activeTrackColor: Colors.amberAccent.withValues(alpha: 0.3),
+                  inactiveThumbColor: Colors.white30,
+                  inactiveTrackColor: Colors.white10,
+                );
+              },
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
 
         // Transcription text box

@@ -32,4 +32,33 @@ class LocalClipboard {
       return false;
     }
   }
+
+  /// Checks if the accessibility service is active
+  static Future<bool> isAccessibilityServiceEnabled() async {
+    try {
+      final bool? enabled = await _channel.invokeMethod<bool>('isAccessibilityServiceEnabled');
+      return enabled ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Opens the system Accessibility settings screen
+  static Future<void> openAccessibilitySettings() async {
+    try {
+      await _channel.invokeMethod<void>('openAccessibilitySettings');
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  /// Injects text directly into the focused input field using Accessibility Service
+  static Future<bool> injectText(String text) async {
+    try {
+      final bool? success = await _channel.invokeMethod<bool>('injectText', text);
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

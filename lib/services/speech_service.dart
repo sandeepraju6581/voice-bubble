@@ -6,6 +6,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../utils/smart_mix_processor.dart';
 import 'dictionary_service.dart';
+import 'package:local_clipboard/local_clipboard.dart';
 
 class SpeechService {
   SpeechService._internal();
@@ -19,6 +20,7 @@ class SpeechService {
   final ValueNotifier<String> status = ValueNotifier<String>("Idle");
   final ValueNotifier<double> soundLevel = ValueNotifier<double>(0.0);
   final ValueNotifier<String> currentLocale = ValueNotifier<String>("en_US");
+  final ValueNotifier<bool> autoInjectEnabled = ValueNotifier<bool>(false);
 
   bool _isInitialized = false;
 
@@ -116,6 +118,9 @@ class SpeechService {
             isListening.value = false;
             soundLevel.value = 0.0;
             status.value = "Done";
+            if (autoInjectEnabled.value && processedText.isNotEmpty) {
+              LocalClipboard.injectText(processedText);
+            }
           }
         },
         listenOptions: SpeechListenOptions(

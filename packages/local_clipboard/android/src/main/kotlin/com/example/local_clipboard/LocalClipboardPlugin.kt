@@ -12,6 +12,10 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.io.File
+import android.content.ComponentName
+import android.provider.Settings
+import android.text.TextUtils
+
 
 class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
     private lateinit var channel : MethodChannel
@@ -50,6 +54,22 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
                     result.success(success)
                 } else {
                     result.error("INVALID_ARGUMENT", "File paths list is null", null)
+                }
+            }
+            "isAccessibilityServiceEnabled" -> {
+                result.success(isAccessibilityServiceEnabled())
+            }
+            "openAccessibilitySettings" -> {
+                openAccessibilitySettings()
+                result.success(true)
+            }
+            "injectText" -> {
+                val text = call.arguments as? String
+                if (text != null) {
+                    val success = injectText(text)
+                    result.success(success)
+                } else {
+                    result.error("INVALID_ARGUMENT", "Text to inject is null", null)
                 }
             }
             else -> {
@@ -114,6 +134,44 @@ class LocalClipboardPlugin: FlutterPlugin, MethodCallHandler {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expectedComponentName = ComponentName(context.packageName, "com.example.viocebubble.VoiceBubbleAccessibilityService")
+        val enabledServicesSetting = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServicesSetting)
+        while (colonSplitter.hasNext()) {
+            val componentNameString = colonSplitter.next()
+            val enabledService = ComponentName.unflattenFromString(componentNameString)
+            if (enabledService != null && enabledService == expectedComponentName) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun openAccessibilitySettings() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    }
+
+    private fun injectText(text: String): Boolean {
+        return try {
+            val clazz = Class.forName("com.example.viocebubble.VoiceBubbleAccessibilityService")
+            val companionField = clazz.getField("Companion")
+            val companionObj = companionField.get(null)
+            val method = companionObj.javaClass.getMethod("injectText", Context::class.java, String::class.java)
+            method.invoke(companionObj, context, text) as Boolean
+        } catch (e: Exception) {
+            e.printStackTrace()
             false
         }
     }

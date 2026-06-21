@@ -17,9 +17,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _micPermissionGranted = false;
   bool _overlayPermissionGranted = false;
+  bool _accessibilityServiceActive = false;
   bool _inAppBubbleActive = false;
   bool _systemOverlayActive = false;
   String _testTranscribedText = "";
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _pulseController = AnimationController(
       vsync: this,
@@ -79,11 +81,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SpeechService.instance.soundLevel.removeListener(_updateTestWaveform);
     _pulseController.dispose();
     _englishWordController.dispose();
     _teluguWordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissions();
+    }
   }
 
   void _updateTestWaveform() {
@@ -100,13 +110,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _checkPermissions() async {
     final micGranted = await SpeechService.instance.checkPermissions();
     bool overlayGranted = false;
+    bool accessibilityActive = false;
     if (Platform.isAndroid) {
       overlayGranted = await OverlayServiceWrapper.instance.checkPermission();
+      accessibilityActive = await LocalClipboard.isAccessibilityServiceEnabled();
     }
 
     setState(() {
       _micPermissionGranted = micGranted;
       _overlayPermissionGranted = overlayGranted;
+      _accessibilityServiceActive = accessibilityActive;
     });
   }
 
@@ -375,6 +388,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               isGranted: _overlayPermissionGranted,
               onRequest: _requestOverlayPermission,
             ),
+            const Divider(color: Colors.white12, height: 20),
+            _buildPermissionTile(
+              title: "Auto-Type Accessibility Service",
+              subtitle: "Required to type dictated text directly",
+              isGranted: _accessibilityServiceActive,
+              onRequest: () async {
+                await LocalClipboard.openAccessibilitySettings();
+                Future.delayed(const Duration(seconds: 1), _checkPermissions);
+              },
+            ),
           ],
         ],
       ),
@@ -458,6 +481,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               value: _systemOverlayActive,
               onChanged: (val) => _toggleSystemOverlay(val),
               activeColor: Colors.deepPurpleAccent,
+            ),
+            const Divider(color: Colors.white12, height: 20),
+            ValueListenableBuilder<bool>(
+              valueListenable: SpeechService.instance.autoInjectEnabled,
+              builder: (context, enabled, _) {
+                return _buildToggleTile(
+                  title: "Auto-Type Dictated Text",
+                  subtitle: "Inject text directly into active input fields",
+                  value: enabled,
+                  onChanged: (val) async {
+                    if (val) {
+                      final active = await LocalClipboard.isAccessibilityServiceEnabled();
+                      if (!active) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Enable the Auto-Type Accessibility Service first!"),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                    }
+                    SpeechService.instance.autoInjectEnabled.value = val;
+                  },
+                  activeColor: Colors.amberAccent,
+                );
+              },
             ),
           ],
         ],
